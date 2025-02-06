@@ -9,7 +9,6 @@ load_dotenv()
 MY_POST = "at://did:plc:stdc72pu4wbmpdkfw5qqcw3b/app.bsky.feed.post/3lhj7sjr75o2s"
 
 
-
 app = FastAPI()
 
 
