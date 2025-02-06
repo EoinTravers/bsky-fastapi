@@ -5,3 +5,5 @@ pip install uv
 
 # Install dependencies using uv
 uv pip install -r pyproject.toml
+
+ls -la *
