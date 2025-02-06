@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-MY_POST = "did:plc:afdzucap5o32p3ffjwbgag5k"
+MY_POST = "at://did:plc:stdc72pu4wbmpdkfw5qqcw3b/app.bsky.feed.post/3lhj7sjr75o2s"
+
 
 
 app = FastAPI()
