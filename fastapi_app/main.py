@@ -1,87 +1,84 @@
-from fastapi import FastAPI
-from pydantic import BaseModel, validator
-from typing import Dict, Any
-import os
+from fastapi import FastAPI, Header, HTTPException
 from dotenv import load_dotenv
+import logging
+
+from .config import Config, setup_config
+from .type_definitions import DIDDocument, FeedGeneratorDescriptor, FeedSkeleton
+from .feed import feed_generator
 
 load_dotenv()
 
-MY_POST = "at://did:plc:stdc72pu4wbmpdkfw5qqcw3b/app.bsky.feed.post/3lhj7sjr75o2s"
-
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 app = FastAPI()
-
-
-class Config(BaseModel):
-    SERVICE_DID: str = os.getenv("SERVICE_DID", "")
-    HOSTNAME: str = os.getenv("HOSTNAME", "")
-    FEED_URI: str = os.getenv("FEED_URI", "")
-
-    @validator("SERVICE_DID")
-    def validate_service_did(cls, v: str, values: Dict[str, Any]) -> str:
-        hostname: str = values["HOSTNAME"]
-        if not v.endswith(hostname):
-            raise ValueError(f"SERVICE_DID must end with HOSTNAME ({hostname})")
-        return v
-
-
-config = Config()
+config: Config = setup_config()
 
 
 @app.get("/")
 def index():
-    return "ATProto Feed Generator powered by The AT Protocol SDK for Python (https://github.com/MarshalX/atproto)."
+    return "Minimal FastAPI-powered bsky feed generator."
 
 
 @app.get("/.well-known/did.json")
-def did_json():
-    return {
+def did_json() -> DIDDocument:
+    doc = {
         "@context": ["https://www.w3.org/ns/did/v1"],
-        "id": config.SERVICE_DID,
+        "id": config.service_did,
         "service": [
             {
                 "id": "#bsky_fg",
                 "type": "BskyFeedGenerator",
-                "serviceEndpoint": f"https://{config.HOSTNAME}",
+                "serviceEndpoint": f"https://{config.hostname}",
             }
         ],
     }
+    return DIDDocument(**doc)
 
 
 @app.get("/xrpc/app.bsky.feed.describeFeedGenerator")
-def describe_feed_generator():
-    feeds = [{"uri": config.FEED_URI}]
+def describe_feed_generator() -> FeedGeneratorDescriptor:
+    feeds = [{"uri": config.feed_uri}]
     response = {
         "encoding": "application/json",
-        "body": {"did": config.SERVICE_DID, "feeds": feeds},
+        "body": {"did": config.service_did, "feeds": feeds},
     }
-    return response
+    return FeedGeneratorDescriptor(**response)
 
 
 # The main route
-class FeedPost(BaseModel):
-    post: str  # Must be an at://did: identifier
-
-
-class FeedSkeleton(BaseModel):
-    feed: list[FeedPost]
-    cursor: int | None = None
-
-
 @app.get("/xrpc/app.bsky.feed.getFeedSkeleton")
 def get_feed_skeleton(
-    feed: str | None = None,
+    feed: str | None = config.feed_uri,
     cursor: int | None = None,
     limit: int = 20,
+    authorization: str | None = Header(
+        None, description="Bearer token for authentication"
+    ),
 ) -> FeedSkeleton:
-    # Example of how to check auth if giving user-specific results:
     """
-    from server.auth import AuthorizationError, validate_auth
-    try:
-        requester_did = validate_auth(request)
-    except AuthorizationError:
-        return 'Unauthorized', 401
-    """
+    The main route for bsky feeds.
 
-    response = FeedSkeleton(feed=[FeedPost(post=MY_POST) for _ in range(5)])
+    Args:
+        feed: The feed to get.
+        cursor: The cursor to get the next page of.
+        limit: The number of posts to get.
+        authorization: The authorization header. Should start with "Bearer ".
+    """
+    logger.info(f"Feed Request: {feed=} {cursor=} {limit=} {authorization=}")
+    if feed != config.feed_uri:
+        raise HTTPException(status_code=404, detail=f"Feed not found: {feed}")
+
+    # Example of how to check auth if giving user-specific results:
+    # """
+    # from server.auth import AuthorizationError, validate_auth
+    # try:
+    #     requester_did = validate_auth(request)
+    # except AuthorizationError:
+    #     return 'Unauthorized', 401
+    # """
+    response = feed_generator(cursor, limit)
+    logger.info(f"Feed Response: {response}")
     return response
+    # response = FeedSkeleton(feed=[FeedPost(post=MY_POST) for _ in range(5)])
+    # return response

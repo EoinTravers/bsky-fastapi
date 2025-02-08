@@ -1,6 +1,6 @@
 if [ -z "$PORT" ]; then
     if [ "$ENV" = "PROD" ]; then
-        PORT=80
+        PORT=10000
     else
         PORT=9999
     fi
