@@ -1,5 +1,3 @@
 from . import feed
 
-algos = {
-    feed.uri: feed.handler
-}
+algos = {feed.uri: feed.handler}

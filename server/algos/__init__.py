@@ -1,5 +1,6 @@
-from . import feed
+from . import feed, dummy
+from server import config
 
-algos = {
-    feed.uri: feed.handler
-}
+uri = config.FEED_URI
+
+algos = {uri: dummy.handler, "legacy": feed.handler}
