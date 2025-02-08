@@ -1,15 +1,14 @@
 from fastapi import FastAPI, Header, HTTPException
 from dotenv import load_dotenv
-import logging
 
 from .config import Config, setup_config
 from .type_definitions import DIDDocument, FeedGeneratorDescriptor, FeedSkeleton
 from .feed import feed_generator
+from .logger import setup_logger
 
 load_dotenv()
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = setup_logger(__name__)
 
 app = FastAPI()
 config: Config = setup_config()
@@ -78,7 +77,7 @@ def get_feed_skeleton(
     #     return 'Unauthorized', 401
     # """
     response = feed_generator(cursor, limit)
-    logger.info(f"Feed Response: {response}")
+    logger.info(f"Response with {len(response.feed)} posts. {cursor=}")
     return response
     # response = FeedSkeleton(feed=[FeedPost(post=MY_POST) for _ in range(5)])
     # return response
